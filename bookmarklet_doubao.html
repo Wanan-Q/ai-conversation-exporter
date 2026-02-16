@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>导出豆包对话到MD文档</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    h1 { color: #333; }
+    .info { background: #e8f0fe; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #4285f4; }
+    .bookmark { 
+      display: inline-block; padding: 12px 24px; background: #4285f4; color: white; 
+      text-decoration: none; border-radius: 6px; margin: 10px 0; cursor: move; font-weight: bold;
+    }
+    .bookmark:hover { background: #3367d6; }
+    .step { background: #f5f5f5; padding: 16px; margin: 16px 0; border-radius: 6px; }
+    code { background: #eee; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>📥 导出豆包对话到MD文档</h1>
+  <p>一键导出豆包 (Doubao) AI 对话为 Markdown 文档</p>
+
+  <div class="info">
+    <strong>✨ Platform</strong>
+    <ul style="margin:8px 0;">
+      <li>Doubao (豆包) - doubao.com</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <strong>Usage:</strong>
+    <ol>
+      <li>Drag the button below to your bookmarks bar</li>
+      <li>Go to Doubao chat page</li>
+      <li>Click the bookmark to export</li>
+    </ol>
+  </div>
+  
+  <a class="bookmark" id="exporter" href="">📥 导出豆包对话</a>
+  
+  <p style="margin-top:20px;font-size:0.9em;color:#666;">
+    💡 Press F12 to see export logs
+  </p>
+
+  <script>
+    var script = function() {
+      try {
+        console.log('=== Export Doubao Chat ===');
+        
+        var rule = { name: 'Doubao', container: '[data-testid="message_content"]', userPattern: 'justify-end', method: 'className' };
+        
+        console.log('Platform:', rule.name);
+        
+        var getTitle = function() {
+          try {
+            var titleEl = document.querySelector('[class*="group/title"] .truncate');
+            if (titleEl && titleEl.innerText) {
+              var t = titleEl.innerText.trim();
+              if (t.length > 0 && t.length < 100) return t;
+            }
+          } catch(e) {}
+          return null;
+        };
+        
+        var exT = function(tb) {
+          var rs = tb.querySelectorAll('tr'), md = [];
+          for (var r = 0; r < rs.length; r++) {
+            var cs = rs[r].querySelectorAll('th, td'), ln = [];
+            for (var c = 0; c < cs.length; c++) {
+              ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+            }
+            if (ln.length > 0) {
+              md.push('| ' + ln.join(' | ') + ' |');
+              if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |');
+            }
+          }
+          return md.join('\n');
+        };
+        
+        var exC = function(p) {
+          var c = p.querySelector('code') || p;
+          return (c.innerText || '').trim().split('\n').map(function(l) {
+            return l.replace(/^\s*\d+\s+/, '');
+          }).join('\n');
+        };
+        
+        var toMd = function(el) {
+          var w = function(n) {
+            if (!n) return '';
+            if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+            if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+            if (n.nodeName === 'PRE') {
+              var cd = exC(n); if (!cd) return '';
+              var ce = n.querySelector('code'), lg = '';
+              if (ce && ce.className) { var m = ce.className.match(/language-(\w+)/); if (m) lg = m[1]; }
+              if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+              return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+            }
+            if (/^H[1-6]$/.test(n.nodeName)) {
+              var lv = parseInt(n.nodeName[1]) + 1, hh = '';
+              for (var i = 0; i < lv; i++) hh += '#';
+              return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n';
+            }
+            if (n.nodeName === 'P') return wc(n) + '\n';
+            if (n.nodeName === 'BR') return '\n';
+            if (n.nodeName === 'LI') return '- ' + wc(n).trim() + '\n';
+            if (n.nodeName === 'UL' || n.nodeName === 'OL') return '\n' + wc(n);
+            if (n.nodeName === 'STRONG' || n.nodeName === 'B') return '**' + wc(n) + '**';
+            if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+            if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+            return wc(n);
+          };
+          var wc = function(n) {
+            if (!n || !n.childNodes) return ''; var o = '';
+            for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]);
+            return o;
+          };
+          return w(el).replace(/\n{3,}/g, '\n\n').trim();
+        };
+        
+        var getRole = function(el) {
+          if (rule.method === 'className') {
+            return new RegExp(rule.userPattern).test(el.className || '') ? 'user' : 'assistant';
+          }
+          return null;
+        };
+        
+        var cs = [];
+        var es = document.querySelectorAll(rule.container);
+        console.log('Containers:', es.length);
+        
+        for (var i = 0; i < es.length; i++) {
+          if (es[i].getBoundingClientRect().right < 280) continue;
+          var ro = getRole(es[i]);
+          if (ro) cs.push({ el: es[i], role: ro, top: es[i].getBoundingClientRect().top });
+        }
+        
+        console.log('Messages:', cs.length);
+        if (cs.length === 0) { alert('No messages found'); return; }
+        
+        cs.sort(function(a, b) { return a.top - b.top; });
+        
+        var ms = [];
+        for (var i = 0; i < cs.length; i++) {
+          var ct = toMd(cs[i].el);
+          if (!ct) ct = (cs[i].el.innerText || '').trim();
+          if (ct.length > 5) ms.push({ role: cs[i].role, content: ct });
+        }
+        
+        var mg = [];
+        for (var i = 0; i < ms.length; i++) {
+          if (mg.length > 0 && mg[mg.length - 1].role === ms[i].role) {
+            mg[mg.length - 1].content += '\n\n' + ms[i].content;
+          } else {
+            mg.push(ms[i]);
+          }
+        }
+        
+        if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) {
+          mg[0].role = 'user';
+        }
+        
+        var now = new Date();
+        var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+        var title = getTitle();
+        var fn = title ? ('Doubao_' + title.replace(/[\\/:*?"<>|]/g, '_') + '_' + ts + '.md') : ('Doubao_' + ts + '.md');
+        
+        var md = '# Doubao Chat Export\n\n> ' + now.toLocaleString('en-US') + '\n\n---\n\n';
+        
+        for (var i = 0; i < mg.length; i++) {
+          var tx = mg[i].content.replace(/\n{3,}/g, '\n\n').trim();
+          if (mg[i].role === 'user') {
+            md += '# User\n\n' + tx + '\n\n---\n\n';
+          } else {
+            md += '# AI\n\n' + tx + '\n\n';
+          }
+        }
+        
+        var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(bl);
+        a.download = fn;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        
+        console.log('=== Export Complete ===');
+        alert('Exported ' + mg.length + ' messages\n\n' + fn);
+        
+      } catch (e) {
+        console.error('Error:', e);
+        alert('Export failed: ' + e.message);
+      }
+    };
+    
+    document.getElementById('exporter').href = 'javascript:(' + script.toString() + ')();';
+  </script>
+</body>
+</html>
