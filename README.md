@@ -2,7 +2,51 @@
 
 一键导出 AI 对话为 Markdown 文档，**零配置、零依赖、所有浏览器通用**。
 
-[![支持平台](https://img.shields.io/badge/平台-7个AI平台-blue)]() [![浏览器](https://img.shields.io/badge/浏览器-全兼容-green)]()
+[![支持平台](https://img.shields.io/badge/平台-6个AI平台-blue)]() [![浏览器](https://img.shields.io/badge/浏览器-全兼容-green)]()
+
+---
+
+## 📊 更新日志
+
+### v2.0（总结 + 导出，推荐使用）
+
+**目录**：`v2.0/`
+
+**核心变化**：从「仅导出」升级为「总结 + 导出」—— 自动发送总结指令给 AI，等待 AI 完成后再导出（含总结内容）。
+
+**支持平台**：6 个（豆包、DeepSeek、Gemini、ChatGPT、元宝、千问）
+
+> ⚠️ **Claude 导出已停用**：v2.0 不再支持 Claude。如需导出 Claude 对话，请使用 v1.0 的 `bookmarklet_claude.html`。
+
+**新增功能**：
+- 总结指令：发送「总结当前对话，在对话框直接回复，不需要图片和文件。」（千问夸克版为「总结当前对话，对话框直接回答。」）
+- 完成检测：各平台采用不同逻辑判断 AI 是否生成完毕
+- 兜底机制：超时（2/3 分钟）后自动导出，避免无限等待
+
+**完成检测逻辑**：
+
+| 平台 | 检测方式 | 说明 |
+|------|----------|------|
+| 豆包、Gemini、ChatGPT | 停止按钮显隐 | 先记录停止按钮出现过，当其消失时视为完成 |
+| DeepSeek、元宝 | 发送键置灰 | 发送按钮从 disabled 恢复为可点击时视为完成 |
+| 千问夸克 | loading 消失 | 检测 loading 按钮消失 |
+| 千问非夸克 | 剪贴板填入 + 发送键置灰 | 因输入框限制，先复制到剪贴板，用户粘贴后检测发送键 |
+
+**千问区分**：
+- `qianwen.com/chat` → 非夸克版（`bookmarklet_qianwen_general_summary_export.html`）
+- `qianwen.com/quarkchat` → 夸克版（`bookmarklet_qianwen_quark_summary_export.html`）
+
+**文件**：
+- 通用版：`multi_platform_exporter_v2.html`
+- 单平台：`bookmarklet_xxx_summary_export.html`（豆包、deepseek、gemini、chatgpt、yuanbao、qianwen_general、qianwen_quark）
+
+---
+
+### v1.0（仅导出）
+
+**目录**：`v1.0/`
+
+**支持平台**：7 个（含 Claude），仅导出当前对话，不包含总结功能。
 
 ---
 
@@ -39,50 +83,37 @@
 
 ## 📦 支持的 AI 平台
 
-| 平台 | 域名 | 状态 |
-|------|------|------|
-| 豆包 (Doubao) | doubao.com | ✅ 完全支持 |
-| DeepSeek | chat.deepseek.com | ✅ 完全支持 |
-| Gemini | gemini.google.com | ✅ 完全支持 |
-| 千问 (Qianwen) | qianwen.com, tongyi.aliyun.com | ✅ 完全支持 |
-| ChatGPT | chatgpt.com, chat.openai.com | ✅ 完全支持 |
-| 元宝 (Yuanbao) | yuanbao.tencent.com | ✅ 完全支持 |
-| Claude | claude.ai, chat.chaton.ai | ✅ 完全支持 |
+| 平台 | 域名 | v2.0（总结+导出） | v1.0（仅导出） |
+|------|------|-------------------|----------------|
+| 豆包 (Doubao) | doubao.com | ✅ | ✅ |
+| DeepSeek | chat.deepseek.com | ✅ | ✅ |
+| Gemini | gemini.google.com | ✅ | ✅ |
+| 千问 (Qianwen) | qianwen.com/chat、qianwen.com/quarkchat | ✅（分夸克/非夸克） | ✅ |
+| ChatGPT | chatgpt.com, chat.openai.com | ✅ | ✅ |
+| 元宝 (Yuanbao) | yuanbao.tencent.com | ✅ | ✅ |
+| Claude | claude.ai | ❌ 已停用 | ✅ |
 
 ---
 
 ## 🚀 快速开始
 
-### 方案 A：单平台书签（推荐，打开更快）
+### v2.0（推荐）：总结 + 导出
 
-如果你只使用单一平台（如只用 DeepSeek 或只用 ChatGPT），**推荐使用单平台书签**：
+**通用版**：打开 `v2.0/multi_platform_exporter_v2.html`，拖拽「📝 总结并导出AI对话」到书签栏。
 
-1. **打开对应平台的 HTML 文件**：
-   - 豆包：`bookmarklet_doubao.html`
-   - DeepSeek：`bookmarklet_deepseek.html`
-   - Gemini：`bookmarklet_gemini.html`
-   - 千问：`bookmarklet_qianwen.html`
-   - ChatGPT：`bookmarklet_chatgpt.html`
-   - 元宝：`bookmarklet_yuanbao.html`
-   - Claude：`bookmarklet_claude.html`
+**单平台书签**（打开更快）：
+- 豆包：`v2.0/bookmarklet_doubao_summary_export.html`
+- DeepSeek：`v2.0/bookmarklet_deepseek_summary_export.html`
+- Gemini：`v2.0/bookmarklet_gemini_summary_export.html`
+- ChatGPT：`v2.0/bookmarklet_chatgpt_summary_export.html`
+- 元宝：`v2.0/bookmarklet_yuanbao_summary_export.html`
+- 千问（非夸克）：`v2.0/bookmarklet_qianwen_general_summary_export.html`
+- 千问（夸克）：`v2.0/bookmarklet_qianwen_quark_summary_export.html`
 
-2. **拖拽按钮到书签栏**
-3. **在对话页面点击书签**，即可导出
+### v1.0：仅导出（含 Claude）
 
-**优点**：代码更精简，打开速度更快。
-
----
-
-### 方案 B：通用版（支持多平台自动识别）
-
-如果你使用多个 AI 平台，**推荐使用通用版**：
-
-1. **打开** `multi_platform_exporter.html`
-2. **拖拽「📥 Export Chat」按钮到书签栏**
-3. **在任意支持的平台点击书签**，会自动识别平台并导出
-
-**优点**：一个书签支持所有平台，自动识别。  
-**注意**：第一次打开需要一点时间加载（因为包含所有平台的规则）。
+**通用版**：`v1.0/multi_platform_exporter.html`  
+**单平台**：`v1.0/bookmarklet_xxx.html`（豆包、deepseek、gemini、qianwen、chatgpt、yuanbao、claude）
 
 ---
 
@@ -277,7 +308,7 @@
 
 | 对比项 | 单平台书签 | 通用版 |
 |-------|-----------|--------|
-| **支持平台** | 1 个 | 7 个（可扩展） |
+| **支持平台** | 1 个 | v2.0 为 6 个，v1.0 为 7 个 |
 | **代码大小** | ~7KB | ~11KB |
 | **加载速度** | 极快 | 稍慢（首次需解析平台判断逻辑） |
 | **适用场景** | 只用一个平台（如只用 DeepSeek） | 使用多个平台 |
@@ -324,15 +355,25 @@
 
 ```
 get_conversation_and_update/
-├── multi_platform_exporter.html      # 通用版（支持所有平台）
-├── bookmarklet_doubao.html          # 豆包专用
-├── bookmarklet_deepseek.html        # DeepSeek 专用
-├── bookmarklet_gemini.html          # Gemini 专用
-├── bookmarklet_qianwen.html         # 千问专用
-├── bookmarklet_chatgpt.html         # ChatGPT 专用
-├── bookmarklet_yuanbao.html         # 元宝专用
-├── bookmarklet_claude.html          # Claude 专用
-└── README.md                        # 使用文档
+├── v2.0/                                    # 总结+导出（推荐）
+│   ├── multi_platform_exporter_v2.html       # 通用版，6 平台
+│   ├── bookmarklet_doubao_summary_export.html
+│   ├── bookmarklet_deepseek_summary_export.html
+│   ├── bookmarklet_gemini_summary_export.html
+│   ├── bookmarklet_chatgpt_summary_export.html
+│   ├── bookmarklet_yuanbao_summary_export.html
+│   ├── bookmarklet_qianwen_general_summary_export.html   # 千问非夸克
+│   └── bookmarklet_qianwen_quark_summary_export.html     # 千问夸克
+├── v1.0/                                    # 仅导出（含 Claude）
+│   ├── multi_platform_exporter.html
+│   ├── bookmarklet_doubao.html
+│   ├── bookmarklet_deepseek.html
+│   ├── bookmarklet_gemini.html
+│   ├── bookmarklet_qianwen.html
+│   ├── bookmarklet_chatgpt.html
+│   ├── bookmarklet_yuanbao.html
+│   └── bookmarklet_claude.html
+└── README.md
 ```
 
 ---
@@ -430,31 +471,6 @@ get_conversation_and_update/
 // - className: 正则匹配 userPattern
 // - tagName: 检查元素标签名
 ```
-
----
-
-## 📊 更新日志
-
-### v1.0.0 (2026-02-16)
-
-**首次发布**
-
-**支持平台**：
-- ✅ 豆包 (Doubao) - doubao.com
-- ✅ DeepSeek - chat.deepseek.com
-- ✅ Gemini - gemini.google.com
-- ✅ 千问 (Qianwen) - qianwen.com, tongyi.aliyun.com
-- ✅ ChatGPT - chatgpt.com, chat.openai.com
-- ✅ 元宝 (Yuanbao) - yuanbao.tencent.com
-- ✅ Claude - claude.ai
-
-**核心功能**：
-- ✅ 双版本方案：单平台书签 + 通用版
-- ✅ 智能内容识别：表格、代码块、列表、标题等
-- ✅ 智能角色识别：DOM 属性 + CSS 类名 + 标签名
-- ✅ 智能过滤：自动过滤侧边栏、对话建议等
-- ✅ 智能命名：平台_标题_时间戳.md
-- ✅ AI Agent 辅助添加新平台
 
 ---
 
