@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DeepSeek - 导出（v3.0 可选总结）</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    h1 { color: #333; }
+    .info { background: #e8f0fe; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #4285f4; }
+    .bookmark { display: inline-block; padding: 12px 24px; background: #4285f4; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; cursor: move; font-weight: bold; }
+    .bookmark:hover { background: #3367d6; }
+    .step { background: #f5f5f5; padding: 16px; margin: 16px 0; border-radius: 6px; }
+    code { background: #eee; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>📝 导出 DeepSeek 对话（v3.0）</h1>
+  <p>支持三种模式：直接导出 / 默认总结后导出 / 自定义总结指令后导出</p>
+  <div class="info">
+    <strong>✨ 适用域名</strong>
+    <ul style="margin:8px 0;"><li>DeepSeek - chat.deepseek.com</li></ul>
+    <strong>v3.0 三种模式</strong>
+    <ul style="margin:8px 0;">
+      <li>1 = 直接导出（不总结）</li>
+      <li>2 = 默认总结后导出</li>
+      <li>3 = 自定义总结后导出（含关键词则置顶总结）</li>
+    </ul>
+  </div>
+  <div class="step"><strong>使用方法：</strong><ol><li>将下方按钮拖拽到书签栏</li><li>打开 DeepSeek 对话页面</li><li>点击书签，按提示选择模式</li></ol></div>
+  <a class="bookmark" id="sender" href="">📝 导出DeepSeek对话</a>
+  <p style="margin-top:20px;font-size:0.9em;color:#666;">💡 按 F12 可查看控制台日志。</p>
+
+  <script>
+    var script = function() {
+      var DEFAULT_MSG = '总结当前对话，在对话框直接回复，不需要图片和文件。';
+      var INPUT_SEL = 'textarea[placeholder*="DeepSeek"]';
+      var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000, SILENCE_MS = 2000;
+      if (location.hostname.indexOf('chat.deepseek.com') < 0) { alert('请在 DeepSeek (chat.deepseek.com) 对话页面使用此书签'); return; }
+      var doExport = function(trigger, isSummaryMode) {
+        try {
+          var rule = { name: 'DeepSeek', container: '[class*="ds-message"]', userPattern: 'd29f3d7d', method: 'className' };
+          var exT=function(tb){var rs=tb.querySelectorAll('tr'),md=[];for(var r=0;r<rs.length;r++){var cs=rs[r].querySelectorAll('th, td'),ln=[];for(var c=0;c<cs.length;c++)ln.push((cs[c].innerText||'').trim().replace(/\n+/g,' ').replace(/\|/g,'\\|'));if(ln.length>0){md.push('| '+ln.join(' | ')+' |');if(r===0)md.push('| '+ln.map(function(){return'---';}).join(' | ')+' |');}}return md.join('\n');};
+          var exC=function(p){var c=p.querySelector('code')||p;return(c.innerText||'').trim().split('\n').map(function(l){return l.replace(/^\s*\d+\s+/,'');}).join('\n');};
+          var toMd=function(el){var w=function(n){if(!n)return'';if(n.nodeType===3)return n.textContent.replace(/\s+/g,' ');if(n.nodeName==='TABLE'){var t=exT(n);return t?'\n\n'+t+'\n\n':'';}if(n.nodeName==='PRE'){var cd=exC(n);if(!cd)return'';var ce=n.querySelector('code'),lg='';if(ce&&ce.className){var m=ce.className.match(/language-(\w+)/);if(m)lg=m[1];}if(!lg&&/(SELECT|def |import )/.test(cd))lg=/SELECT/.test(cd)?'sql':'python';return'\n\n```'+lg+'\n'+cd+'\n```\n\n';}if(/^H[1-6]$/.test(n.nodeName)){var lv=parseInt(n.nodeName[1])+1,hh='';for(var i=0;i<lv;i++)hh+='#';return'\n\n'+hh+' '+wc(n).trim()+'\n\n';}if(n.nodeName==='P')return wc(n)+'\n';if(n.nodeName==='BR')return'\n';if(n.nodeName==='LI')return'- '+wc(n).trim()+'\n';if(n.nodeName==='UL'||n.nodeName==='OL')return'\n'+wc(n);if(n.nodeName==='STRONG'||n.nodeName==='B')return'**'+wc(n)+'**';if(n.nodeName==='EM'||n.nodeName==='I')return'*'+wc(n)+'*';if(n.nodeName==='CODE')return'`'+(n.innerText||'').trim()+'`';return wc(n);};var wc=function(n){if(!n||!n.childNodes)return'';var o='';for(var i=0;i<n.childNodes.length;i++)o+=w(n.childNodes[i]);return o;};return w(el).replace(/\n{3,}/g,'\n\n').trim();};
+          var getRole=function(el){return new RegExp(rule.userPattern).test(el.className||'')?'user':'assistant';};
+          var cs=[],es=document.querySelectorAll(rule.container);
+          for(var i=0;i<es.length;i++){if(es[i].getBoundingClientRect().right<280)continue;var ro=getRole(es[i]);if(ro)cs.push({el:es[i],role:ro,top:es[i].getBoundingClientRect().top});}
+          if(cs.length===0){alert('未提取到对话内容');return;}
+          cs.sort(function(a,b){return a.top-b.top;});
+          var ms=[];for(var i=0;i<cs.length;i++){var ct=toMd(cs[i].el);if(!ct)ct=(cs[i].el.innerText||'').trim();if(ct.length>5)ms.push({role:cs[i].role,content:ct});}
+          var mg=[];for(var i=0;i<ms.length;i++){if(mg.length>0&&mg[mg.length-1].role===ms[i].role)mg[mg.length-1].content+='\n\n'+ms[i].content;else mg.push(ms[i]);}
+          if(mg.length>0&&mg[0].role!=='user'&&mg[0].content.length<300)mg[0].role='user';
+          var summaryContent='',mainMsgs=mg;
+          if(isSummaryMode&&mg.length>=2){var lastUser=mg[mg.length-2],lastAi=mg[mg.length-1];if(lastUser.role==='user'&&lastAi.role==='assistant'){summaryContent=lastAi.content.replace(/\n{3,}/g,'\n\n').trim();mainMsgs=mg.slice(0,-2);}}
+          var now=new Date(),ts=now.getFullYear()+('0'+(now.getMonth()+1)).slice(-2)+('0'+now.getDate()).slice(-2)+'_'+('0'+now.getHours()).slice(-2)+('0'+now.getMinutes()).slice(-2)+('0'+now.getSeconds()).slice(-2);
+          var fn='DeepSeek_'+(summaryContent?'Summary_':'')+ts+'.md';
+          var md='# DeepSeek Chat Export'+(summaryContent?' (Summary)':'')+'\n\n> '+now.toLocaleString('zh-CN')+'\n\n';
+          if(summaryContent)md+='# 对话总结\n\n'+summaryContent+'\n\n---\n\n';
+          for(var i=0;i<mainMsgs.length;i++){var tx=mainMsgs[i].content.replace(/\n{3,}/g,'\n\n').trim();if(mainMsgs[i].role==='user')md+='# User\n\n'+tx+'\n\n---\n\n';else md+='# AI\n\n'+tx+'\n\n';}
+          var bl=new Blob([md.trim()],{type:'text/markdown;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=fn;a.click();URL.revokeObjectURL(a.href);
+          console.log('=== 导出完成 ['+(trigger||'未知')+'] ===');alert('已导出 '+mainMsgs.length+' 条消息'+(summaryContent?'（含总结）':'')+'\n\n'+fn);
+        }catch(e){console.error('Export error:',e);alert('导出失败: '+e.message);}
+      };
+      var choice=prompt('选择导出模式：\n\n1 = 直接导出（不总结）\n2 = 默认总结后导出\n3 = 自定义总结后导出\n\n请输入 1、2 或 3：','2');
+      if(choice===null)return;choice=String(choice).trim();
+      if(choice==='1'){doExport('直接导出',false);return;}
+      if(choice!=='2'&&choice!=='3'){alert('输入无效，已取消');return;}
+      var MSG=choice==='2'?DEFAULT_MSG:(prompt('请输入自定义指令（直接回车使用默认）：\n\n提示：若输入包含「概括」「总结」「归纳」「提炼」「汇总」「概述」「简述」「简要」等关键词，AI 的回复会作为「对话总结」置顶在 MD 文档；否则作为普通对话，无置顶总结。',DEFAULT_MSG)||DEFAULT_MSG);
+      if(MSG.trim()==='')MSG=DEFAULT_MSG;
+      var SUMMARY_KEYWORDS=/概括|总结|归纳|提炼|汇总|概述|简述|简要/;
+      var isSummaryMode=choice==='2'?true:(choice==='3'&&SUMMARY_KEYWORDS.test(MSG));
+      var input=document.querySelector(INPUT_SEL);
+      if(!input){alert('未找到输入框');return;}
+      input.focus();
+      var descriptor=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');
+      if(descriptor&&descriptor.set&&input.tagName==='TEXTAREA')descriptor.set.call(input,MSG);else if(input.tagName==='TEXTAREA')input.value=MSG;else{input.innerText=MSG;input.textContent=MSG;}
+      input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:MSG}));
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',code:'Enter',keyCode:13,bubbles:true}));
+      alert('点击确定后等待 AI 完成，完成后自动导出。');
+      var stopButtonSeen=false,startTime=Date.now();
+      var isVisible=function(el){if(!el)return false;var r=el.getBoundingClientRect();if(r.width<20||r.height<20)return false;if(el.offsetParent===null)return false;var s=window.getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden';};
+      var getVisibleStopBtn=function(){var hoverBg=document.querySelectorAll('.ds-icon-button__hover-bg');for(var i=0;i<hoverBg.length;i++){var p=hoverBg[i].closest?hoverBg[i].closest('.ds-icon-button'):hoverBg[i].parentElement;if(!p)p=hoverBg[i].parentElement;if(p&&isVisible(p)){var inputRect=input.getBoundingClientRect();var r=p.getBoundingClientRect();if(r.top>=inputRect.top-100&&r.bottom<=inputRect.bottom+100)return p;}}return null;};
+      var getVisibleDisabledSendBtn=function(){var btns=document.querySelectorAll('.ds-icon-button--disabled');var inputRect=input.getBoundingClientRect();for(var i=0;i<btns.length;i++){if(!isVisible(btns[i]))continue;var r=btns[i].getBoundingClientRect();if(r.top>=inputRect.top-100&&r.bottom<=inputRect.bottom+100)return btns[i];}return null;};
+      var check=function(){var elapsed=Date.now()-startTime;var stopBtn=getVisibleStopBtn();var disabledSendBtn=getVisibleDisabledSendBtn();if(stopBtn)stopButtonSeen=true;if(stopButtonSeen&&disabledSendBtn){doExport('按钮检测（发送键置灰）',isSummaryMode);return;}if(elapsed>MAX_GENERATING_MS){alert('等待超时（2分钟），请手动导出');return;}if(!stopButtonSeen&&elapsed>WAIT_FOR_START_MS){var lastLen=0;var msgs=document.querySelectorAll('[class*="ds-message"]');for(var k=msgs.length-1;k>=0;k--){if(msgs[k].getBoundingClientRect().right>=280){lastLen=(msgs[k].innerText||'').length;break;}}if(lastLen>0){var silenceStart=Date.now();var silenceCheck=function(){var curLen=0;var m2=document.querySelectorAll('[class*="ds-message"]');for(var k2=m2.length-1;k2>=0;k2--){if(m2[k2].getBoundingClientRect().right>=280){curLen=(m2[k2].innerText||'').length;break;}}if(curLen===lastLen&&curLen>0){if(Date.now()-silenceStart>=SILENCE_MS){doExport('兜底机制（内容稳定）',isSummaryMode);return;}}else{lastLen=curLen;silenceStart=Date.now();}if(Date.now()-startTime>MAX_GENERATING_MS){alert('等待超时（2分钟），请手动导出');return;}setTimeout(silenceCheck,500);};setTimeout(silenceCheck,500);return;}doExport('兜底机制（超时直接导出）',isSummaryMode);return;}setTimeout(check,POLL_MS);};
+      setTimeout(check,POLL_MS);
+    };
+    document.getElementById('sender').href='javascript:('+script.toString()+')();';
+  </script>
+</body>
+</html>

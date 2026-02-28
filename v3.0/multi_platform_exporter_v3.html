@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>总结并导出AI对话（通用版 v3）</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    h1 { color: #333; }
+    .info { background: #e8f0fe; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #4285f4; }
+    .bookmark { 
+      display: inline-block; padding: 12px 24px; background: #4285f4; color: white; 
+      text-decoration: none; border-radius: 6px; margin: 10px 0; cursor: move; font-weight: bold;
+    }
+    .bookmark:hover { background: #3367d6; }
+    .step { background: #f5f5f5; padding: 16px; margin: 16px 0; border-radius: 6px; }
+    code { background: #eee; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>📝 总结并导出AI对话（通用版 v3）</h1>
+  <p>支持三种模式：直接导出 / 默认总结后导出 / 自定义总结后导出。6 个主流 AI 平台自动识别。</p>
+
+  <div class="info">
+    <strong>v3.0 三种模式</strong>
+    <ul style="margin:8px 0;">
+      <li>1 = 直接导出（不总结）</li>
+      <li>2 = 默认总结后导出</li>
+      <li>3 = 自定义总结后导出</li>
+    </ul>
+    <strong>✨ 适用域名</strong>
+    <ul style="margin:8px 0;">
+      <li>豆包 - doubao.com</li>
+      <li>DeepSeek - chat.deepseek.com</li>
+      <li>Gemini - gemini.google.com</li>
+      <li>ChatGPT - chatgpt.com / chat.openai.com</li>
+      <li>元宝 - yuanbao.tencent.com</li>
+      <li>千问 - qianwen.com/chat (非夸克) / qianwen.com/quarkchat (夸克)</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <strong>使用方法：</strong>
+    <ol>
+      <li>将下方按钮拖拽到浏览器书签栏</li>
+      <li>打开任一支持平台的对话页面</li>
+      <li>点击书签，自动发送总结指令并等待完成后导出</li>
+    </ol>
+  </div>
+  
+  <a class="bookmark" id="exporter" href="">📝 总结并导出AI对话</a>
+  
+  <p style="margin-top:20px;font-size:0.9em;color:#666;">
+    💡 按 F12 可查看控制台日志
+  </p>
+
+  <script>
+    var script = function() {
+      try {
+      var h = location.hostname;
+      var p = (location.pathname || '');
+      
+      var platform = null;
+      if (h.indexOf('doubao.com') >= 0) platform = 'doubao';
+      else if (h.indexOf('chat.deepseek.com') >= 0) platform = 'deepseek';
+      else if (h.indexOf('gemini.google.com') >= 0) platform = 'gemini';
+      else if (h.indexOf('chatgpt.com') >= 0 || h.indexOf('chat.openai.com') >= 0) platform = 'chatgpt';
+      else if (h.indexOf('yuanbao.tencent.com') >= 0) platform = 'yuanbao';
+      else if (h.indexOf('qianwen.com') >= 0) {
+        if (p.indexOf('/quarkchat') >= 0) platform = 'qianwen_quark';
+        else if (p.indexOf('/chat') >= 0) platform = 'qianwen_general';
+      }
+      
+      if (!platform) {
+        alert('当前页面不支持：' + h + '\n\n支持的平台：\n- doubao.com\n- chat.deepseek.com\n- gemini.google.com\n- chatgpt.com / chat.openai.com\n- yuanbao.tencent.com\n- qianwen.com/chat 或 qianwen.com/quarkchat');
+        return;
+      }
+      
+      var DEFAULT_MSG = platform === 'qianwen_quark' ? '总结当前对话，对话框直接回答。' : '总结当前对话，在对话框直接回复，不需要图片和文件。';
+      var choice = prompt('选择导出模式：\n\n1 = 直接导出（不总结）\n2 = 默认总结后导出\n3 = 自定义总结后导出\n\n请输入 1、2 或 3：', '2');
+      if (choice === null) return;
+      choice = String(choice).trim();
+      var MSG = null;
+      var isSummaryMode = false;
+      if (choice === '1') {
+        MSG = null;
+        isSummaryMode = false;
+      } else if (choice === '2') {
+        MSG = DEFAULT_MSG;
+        isSummaryMode = true;
+      } else if (choice === '3') {
+        MSG = prompt('请输入自定义指令（直接回车使用默认）：\n\n提示：若输入包含「概括」「总结」「归纳」「提炼」「汇总」「概述」「简述」「简要」等关键词，AI 的回复会作为「对话总结」置顶在 MD 文档；否则作为普通对话，无置顶总结。', DEFAULT_MSG) || DEFAULT_MSG;
+        if (MSG.trim() === '') MSG = DEFAULT_MSG;
+        var SUMMARY_KEYWORDS = /概括|总结|归纳|提炼|汇总|概述|简述|简要/;
+        isSummaryMode = SUMMARY_KEYWORDS.test(MSG);
+      } else {
+        alert('输入无效，已取消');
+        return;
+      }
+      
+      console.log('=== Platform:', platform, 'MSG:', MSG ? 'yes' : 'null', 'isSummaryMode:', isSummaryMode, '===');
+      
+      if (platform === 'doubao') runDoubao(MSG, isSummaryMode);
+      else if (platform === 'deepseek') runDeepSeek(MSG, isSummaryMode);
+      else if (platform === 'gemini') runGemini(MSG, isSummaryMode);
+      else if (platform === 'chatgpt') runChatGPT(MSG, isSummaryMode);
+      else if (platform === 'yuanbao') runYuanbao(MSG, isSummaryMode);
+      else if (platform === 'qianwen_quark') runQianwenQuark(MSG, isSummaryMode);
+      else if (platform === 'qianwen_general') runQianwenGeneral(MSG, isSummaryMode);
+      
+      function runDoubao(MSG, isSummaryMode) {
+        var STOP_BTN = '[data-testid="chat_input_local_break_button"]';
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000;
+        var doExport = mkDoExport('Doubao', { container: '[data-testid="message_content"]', userPattern: 'justify-end', method: 'className' }, '[class*="group/title"] .truncate');
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector('[data-testid="chat_input_input"]');
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        var descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+        if (descriptor && descriptor.set) descriptor.set.call(input, MSG);
+        else input.value = MSG;
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        var stopButtonSeen = false, startTime = Date.now();
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = document.querySelector(STOP_BTN);
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && !stopBtn) { doExport('按钮检测（停止按钮消失）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runDeepSeek(MSG, isSummaryMode) {
+        var INPUT_SEL = 'textarea[placeholder*="DeepSeek"]';
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000, SILENCE_MS = 2000;
+        var doExport = mkDoExport('DeepSeek', { container: '[class*="ds-message"]', userPattern: 'd29f3d7d', method: 'className' }, null);
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector(INPUT_SEL);
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        var descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+        if (descriptor && descriptor.set && input.tagName === 'TEXTAREA') descriptor.set.call(input, MSG);
+        else if (input.tagName === 'TEXTAREA') input.value = MSG;
+        else { input.innerText = MSG; input.textContent = MSG; }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        var stopButtonSeen = false, startTime = Date.now();
+        var isVisible = function(el) {
+          if (!el) return false;
+          var r = el.getBoundingClientRect();
+          if (r.width < 20 || r.height < 20) return false;
+          if (el.offsetParent === null) return false;
+          var s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden';
+        };
+        var getVisibleStopBtn = function() {
+          var hoverBg = document.querySelectorAll('.ds-icon-button__hover-bg');
+          for (var i = 0; i < hoverBg.length; i++) {
+            var p = hoverBg[i].closest ? hoverBg[i].closest('.ds-icon-button') : hoverBg[i].parentElement;
+            if (!p) p = hoverBg[i].parentElement;
+            if (p && isVisible(p)) {
+              var inputRect = input.getBoundingClientRect();
+              var r = p.getBoundingClientRect();
+              if (r.top >= inputRect.top - 100 && r.bottom <= inputRect.bottom + 100) return p;
+            }
+          }
+          return null;
+        };
+        var getVisibleDisabledSendBtn = function() {
+          var btns = document.querySelectorAll('.ds-icon-button--disabled');
+          var inputRect = input.getBoundingClientRect();
+          for (var i = 0; i < btns.length; i++) {
+            if (!isVisible(btns[i])) continue;
+            var r = btns[i].getBoundingClientRect();
+            if (r.top >= inputRect.top - 100 && r.bottom <= inputRect.bottom + 100) return btns[i];
+          }
+          return null;
+        };
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = getVisibleStopBtn();
+          var disabledSendBtn = getVisibleDisabledSendBtn();
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && disabledSendBtn) { doExport('按钮检测（发送键置灰）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) {
+            var lastLen = 0, stableCount = 0;
+            var msgs = document.querySelectorAll('[class*="ds-message"]');
+            for (var k = msgs.length - 1; k >= 0; k--) {
+              if (msgs[k].getBoundingClientRect().right >= 280) { lastLen = (msgs[k].innerText || '').length; break; }
+            }
+            if (lastLen > 0) {
+              var silenceStart = Date.now();
+              var silenceCheck = function() {
+                var curLen = 0;
+                var m2 = document.querySelectorAll('[class*="ds-message"]');
+                for (var k2 = m2.length - 1; k2 >= 0; k2--) {
+                  if (m2[k2].getBoundingClientRect().right >= 280) { curLen = (m2[k2].innerText || '').length; break; }
+                }
+                if (curLen === lastLen && curLen > 0) {
+                  if (Date.now() - silenceStart >= SILENCE_MS) { doExport('兜底机制（内容稳定）', isSummaryMode); return; }
+                } else { lastLen = curLen; silenceStart = Date.now(); }
+                if (Date.now() - startTime > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+                setTimeout(silenceCheck, 500);
+              };
+              setTimeout(silenceCheck, 500);
+              return;
+            }
+            doExport('兜底机制（超时直接导出）', isSummaryMode);
+            return;
+          }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runGemini(MSG, isSummaryMode) {
+        var POLL_MS = 500, WAIT_FOR_START_MS = 30000, MAX_GENERATING_MS = 180000;
+        var doExport = mkDoExportGemini();
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector('.ql-editor[contenteditable="true"]') || document.querySelector('[aria-label*="Gemini"][contenteditable="true"]') || document.querySelector('[data-placeholder*="Gemini"]');
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        if (document.execCommand) { document.execCommand('selectAll', false, null); document.execCommand('insertText', false, MSG); }
+        else { input.innerText = MSG; input.textContent = MSG; }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        var doSend = function() {
+          input.focus();
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        };
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        setTimeout(doSend, 50);
+        var getVisibleStopBtn = function() {
+          var icon = document.querySelector('mat-icon[data-mat-icon-name="stop"], mat-icon[data-mat-icon-name="stop_circle"]');
+          if (icon) {
+            var btn = icon.closest('button');
+            if (btn && btn.getBoundingClientRect().width > 0) return btn;
+          }
+          var byLabel = document.querySelector('button[aria-label*="停止"], button[aria-label*="Stop"], [aria-label*="停止"]');
+          if (byLabel) {
+            var b = byLabel.tagName === 'BUTTON' ? byLabel : byLabel.closest('button');
+            if (b && b.getBoundingClientRect().width > 0) return b;
+          }
+          return null;
+        };
+        var stopButtonSeen = false, startTime = Date.now();
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = getVisibleStopBtn();
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && !stopBtn) {
+            doExport('按钮检测（停止按钮消失）', isSummaryMode);
+            return;
+          }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（3分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runChatGPT(MSG, isSummaryMode) {
+        var STOP_BTN = '[data-testid="stop-button"]';
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000;
+        var doExport = mkDoExport('ChatGPT', { container: '[data-message-author-role]', method: 'attribute' }, null);
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector('#prompt-textarea') || document.querySelector('div.ProseMirror[contenteditable="true"]');
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        if (document.execCommand) { document.execCommand('selectAll', false, null); document.execCommand('insertText', false, MSG); }
+        else { input.innerText = MSG; input.textContent = MSG; }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        var doSend = function() {
+          input.focus();
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        };
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        setTimeout(doSend, 50);
+        var stopButtonSeen = false, startTime = Date.now();
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = document.querySelector(STOP_BTN);
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && !stopBtn) { doExport('按钮检测（停止按钮消失）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runYuanbao(MSG, isSummaryMode) {
+        var STOP_SELS = ['a[class*="style__send-btn"]:not([class*="disabled"])', 'a[class*="stop"]', '[class*="break"]'];
+        var DISABLED_SEND = '#yuanbao-send-btn[class*="disabled"]';
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000;
+        var doExport = mkDoExport('Yuanbao', { container: '[class*="agent-chat__list__item--"]', userPattern: '--human', method: 'className' }, null);
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector('#search-bar .ql-editor') || document.querySelector('[class*="chat-input-editor"] .ql-editor') || document.querySelector('.ql-editor[contenteditable="true"][data-placeholder*="尽管问"]') || document.querySelector('.ql-editor[contenteditable="true"]');
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        if (document.execCommand) { document.execCommand('selectAll', false, null); document.execCommand('insertText', false, MSG); }
+        else { input.innerText = MSG; input.textContent = MSG; }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        var doSend = function() {
+          input.focus();
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        };
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        setTimeout(doSend, 50);
+        var stopButtonSeen = false, startTime = Date.now();
+        var isVisible = function(el) {
+          if (!el) return false;
+          var r = el.getBoundingClientRect();
+          return r.width > 10 && r.height > 10 && el.offsetParent !== null;
+        };
+        var getVisibleStopBtn = function() {
+          for (var i = 0; i < STOP_SELS.length; i++) {
+            try {
+              var els = document.querySelectorAll(STOP_SELS[i]);
+              for (var j = 0; j < els.length; j++) {
+                if (els[j].id === 'yuanbao-send-btn') continue;
+                if (isVisible(els[j])) {
+                  var r = els[j].getBoundingClientRect();
+                  var inputRect = input.getBoundingClientRect();
+                  if (r.top >= inputRect.top - 150 && r.bottom <= inputRect.bottom + 150) return els[j];
+                }
+              }
+            } catch (e) {}
+          }
+          return null;
+        };
+        var getVisibleDisabledSendBtn = function() {
+          var btn = document.querySelector(DISABLED_SEND);
+          if (btn && isVisible(btn)) return btn;
+          btn = document.querySelector('#yuanbao-send-btn');
+          if (btn && /disabled/.test(btn.className || '') && isVisible(btn)) return btn;
+          return null;
+        };
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = getVisibleStopBtn();
+          var disabledSendBtn = getVisibleDisabledSendBtn();
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && disabledSendBtn) { doExport('按钮检测（发送键置灰）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runQianwenQuark(MSG, isSummaryMode) {
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000;
+        var doExport = mkDoExportQianwenQuark();
+        if (!MSG) { doExport('直接导出', false); return; }
+        var input = document.querySelector('textarea[placeholder*="千问"]') || document.querySelector('textarea[placeholder*="提问"]');
+        if (!input) { alert('未找到输入框'); return; }
+        input.focus();
+        input.value = MSG;
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: MSG }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        var doSend = function() {
+          input.focus();
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        };
+        alert('点击确定后等待 AI 完成，完成后自动导出。');
+        setTimeout(doSend, 50);
+        var stopButtonSeen = false, startTime = Date.now();
+        var getVisibleLoadingBtn = function() {
+          var el = document.querySelector('.submit-button.loading');
+          if (el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0) return el;
+          return null;
+        };
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var loadingBtn = getVisibleLoadingBtn();
+          if (loadingBtn) stopButtonSeen = true;
+          if (stopButtonSeen && !loadingBtn) { doExport('按钮检测（loading 消失）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function runQianwenGeneral(MSG, isSummaryMode) {
+        var POLL_MS = 500, WAIT_FOR_START_MS = 15000, MAX_GENERATING_MS = 120000;
+        var doExport = mkDoExportQianwenGeneral();
+        if (!MSG) { doExport('直接导出', false); return; }
+        var tryFillInput = function(input, fillMsg) {
+          input.focus();
+          try {
+            var el = input;
+            while (el && el !== document.body) {
+              for (var k in el) {
+                if (k.indexOf('__reactProps') === 0 || k.indexOf('__reactFiber') === 0) {
+                  var fiber = el[k];
+                  if (fiber && fiber.children && fiber.children[1]) {
+                    var props = fiber.children[1].props || fiber.children[1].memoizedProps;
+                    if (props && props.editor) {
+                      props.editor.insertText(fillMsg);
+                      if (typeof props.editor.onChange === 'function') props.editor.onChange();
+                      return true;
+                    }
+                  }
+                  if (fiber && fiber.return) {
+                    var p = fiber.return;
+                    for (var i = 0; i < 20 && p; i++) {
+                      var mp = p.memoizedProps || p.props;
+                      if (mp && mp.editor) {
+                        try {
+                          if (typeof mp.editor.insertText === 'function') mp.editor.insertText(fillMsg);
+                          if (typeof mp.editor.onChange === 'function') mp.editor.onChange();
+                          return true;
+                        } catch (e) {}
+                      }
+                      p = p.return;
+                    }
+                  }
+                }
+              }
+              el = el.parentElement;
+            }
+          } catch (e) {}
+          return false;
+        };
+        var getInputText = function(input) {
+          return (input.innerText || input.textContent || '').trim();
+        };
+        var doSend = function(input) {
+          var sendBtn = document.querySelector('[class*="operateBtn"]:not([class*="disabled"]) [data-icon-type="qwpcicon-sendChat"]');
+          if (sendBtn) {
+            var btn = sendBtn.closest('[class*="operateBtn"]');
+            if (btn && !/disabled/.test(btn.className || '')) { btn.click(); return; }
+          }
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        };
+        var input = document.querySelector('div[data-slate-editor="true"][data-slate-node="value"]') || document.querySelector('div[data-placeholder="向千问提问"]') || document.querySelector('[class*="slateEditorWrapper"] [contenteditable="true"]');
+        if (!input) { alert('未找到输入框'); return; }
+        var filled = tryFillInput(input, MSG);
+        var hasText = getInputText(input).indexOf('总结') >= 0 || getInputText(input).indexOf(MSG.substring(0, 4)) >= 0;
+        if (!filled && !hasText) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(MSG).then(function() {
+              alert('自动填入失败，已复制到剪贴板。\n\n请手动粘贴到输入框（Ctrl+V）并发送。');
+            }).catch(function() { alert('自动填入失败，请手动输入并发送'); });
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = MSG;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            alert('自动填入失败，已复制到剪贴板。\n\n请手动粘贴到输入框（Ctrl+V）并发送。');
+          }
+        } else {
+          alert('已填入总结指令，点击确定后自动发送。');
+        }
+        setTimeout(function() {
+          if (getInputText(input).indexOf('总结') >= 0) {
+            doSend(input);
+            console.log('=== 已发送总结指令，等待 AI 完成 ===');
+          }
+        }, 80);
+        var stopButtonSeen = false, startTime = Date.now();
+        var getVisibleStopBtn = function() {
+          var imgs = document.querySelectorAll('img[src*="O1CN01GxD8Fq1ELwB7ZTHVq"]');
+          for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].getBoundingClientRect().width > 0 && imgs[i].getBoundingClientRect().height > 0) return imgs[i];
+          }
+          return null;
+        };
+        var getVisibleDisabledSendBtn = function() {
+          var divs = document.querySelectorAll('[class*="operateBtn"][class*="disabled"]');
+          for (var i = 0; i < divs.length; i++) {
+            if (divs[i].querySelector('[data-icon-type="qwpcicon-sendChat"]') && divs[i].getBoundingClientRect().width > 0) return divs[i];
+          }
+          return null;
+        };
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = getVisibleStopBtn();
+          var disabledSendBtn = getVisibleDisabledSendBtn();
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && disabledSendBtn) { doExport('按钮检测（发送键置灰）', isSummaryMode); return; }
+          if (elapsed > MAX_GENERATING_MS) { alert('等待超时（2分钟），请手动导出'); return; }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) { doExport('兜底机制（超时直接导出）', isSummaryMode); return; }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      }
+      
+      function mkDoExport(name, rule, titleSel) {
+        return function(trigger, isSummaryMode) {
+          if (typeof isSummaryMode === 'undefined') isSummaryMode = false;
+          try {
+            var getTitle = function() {
+              if (!titleSel) return null;
+              try {
+                var el = document.querySelector(titleSel);
+                if (el && el.innerText) { var t = el.innerText.trim(); if (t.length > 0 && t.length < 100) return t; }
+              } catch(e) {}
+              return null;
+            };
+            var exT = function(tb) {
+              var rs = tb.querySelectorAll('tr'), md = [];
+              for (var r = 0; r < rs.length; r++) {
+                var cs = rs[r].querySelectorAll('th, td'), ln = [];
+                for (var c = 0; c < cs.length; c++) ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+                if (ln.length > 0) { md.push('| ' + ln.join(' | ') + ' |'); if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |'); }
+              }
+              return md.join('\n');
+            };
+            var exC = function(p) {
+              var c = p.querySelector('code') || p;
+              return (c.innerText || '').trim().split('\n').map(function(l) { return l.replace(/^\s*\d+\s+/, ''); }).join('\n');
+            };
+            var toMd = function(el) {
+              var w = function(n) {
+                if (!n) return '';
+                if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+                if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+                if (n.nodeName === 'PRE') {
+                  var cd = exC(n); if (!cd) return '';
+                  var ce = n.querySelector('code'), lg = '';
+                  if (ce && ce.className) { var m = ce.className.match(/language-(\w+)/); if (m) lg = m[1]; }
+                  if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+                  return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+                }
+                if (/^H[1-6]$/.test(n.nodeName)) { var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n'; }
+                if (n.nodeName === 'P') return wc(n) + '\n';
+                if (n.nodeName === 'BR') return '\n';
+                if (n.nodeName === 'LI') return '- ' + wc(n).trim() + '\n';
+                if (n.nodeName === 'UL' || n.nodeName === 'OL') return '\n' + wc(n);
+                if (n.nodeName === 'STRONG' || n.nodeName === 'B') return '**' + wc(n) + '**';
+                if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+                if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+                return wc(n);
+              };
+              var wc = function(n) { if (!n || !n.childNodes) return ''; var o = ''; for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]); return o; };
+              return w(el).replace(/\n{3,}/g, '\n\n').trim();
+            };
+            var getRole = function(el) {
+              if (rule.method === 'attribute') {
+                var role = el.getAttribute('data-message-author-role');
+                if (role === 'user') return 'user';
+                if (role === 'assistant') return 'assistant';
+                return null;
+              }
+              return new RegExp(rule.userPattern).test(el.className || '') ? 'user' : 'assistant';
+            };
+            var cs = [], es = document.querySelectorAll(rule.container);
+            for (var i = 0; i < es.length; i++) {
+              if (rule.method !== 'attribute' && es[i].getBoundingClientRect().right < 280) continue;
+              var ro = getRole(es[i]);
+              if (ro) cs.push({ el: es[i], role: ro, top: es[i].getBoundingClientRect().top });
+            }
+            if (cs.length === 0) { alert('未提取到对话内容'); return; }
+            cs.sort(function(a, b) { return a.top - b.top; });
+            var ms = [];
+            for (var i = 0; i < cs.length; i++) {
+              var ct = toMd(cs[i].el);
+              if (!ct) ct = (cs[i].el.innerText || '').trim();
+              if (ct.length > 5) ms.push({ role: cs[i].role, content: ct });
+            }
+            var mg = [];
+            for (var i = 0; i < ms.length; i++) {
+              if (mg.length > 0 && mg[mg.length - 1].role === ms[i].role) mg[mg.length - 1].content += '\n\n' + ms[i].content;
+              else mg.push(ms[i]);
+            }
+            if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) mg[0].role = 'user';
+            var summaryContent = '', mainMsgs = mg;
+            if (isSummaryMode && mg.length >= 2) {
+              var lastUser = mg[mg.length - 2], lastAi = mg[mg.length - 1];
+              if (lastUser.role === 'user' && lastAi.role === 'assistant') {
+                summaryContent = lastAi.content.replace(/\n{3,}/g, '\n\n').trim();
+                mainMsgs = mg.slice(0, -2);
+              }
+            }
+            var now = new Date();
+            var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+            var title = getTitle();
+            var fn = title ? (name + (summaryContent ? '_Summary_' : '_') + title.replace(/[\\/:*?"<>|]/g, '_') + '_' + ts + '.md') : (name + (summaryContent ? '_Summary_' : '_') + ts + '.md');
+            var md = '# ' + name + ' Chat Export' + (summaryContent ? ' (Summary)' : '') + '\n\n> ' + now.toLocaleString('zh-CN') + '\n\n';
+            if (summaryContent) md += '# 对话总结\n\n' + summaryContent + '\n\n---\n\n';
+            for (var i = 0; i < mainMsgs.length; i++) {
+              var tx = mainMsgs[i].content.replace(/\n{3,}/g, '\n\n').trim();
+              if (mainMsgs[i].role === 'user') md += '# User\n\n' + tx + '\n\n---\n\n';
+              else md += '# AI\n\n' + tx + '\n\n';
+            }
+            var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(bl);
+            a.download = fn;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            console.log('=== 导出完成 [' + (trigger || '未知') + '] ===');
+            alert('已导出 ' + mainMsgs.length + ' 条消息' + (summaryContent ? '（含总结）' : '') + '\n\n触发方式：' + (trigger || '未知') + '\n\n' + fn);
+          } catch (e) {
+            console.error('Export error:', e);
+            alert('导出失败: ' + e.message);
+          }
+        };
+      }
+      
+      function mkDoExportGemini() {
+        return function(trigger, isSummaryMode) {
+          if (typeof isSummaryMode === 'undefined') isSummaryMode = false;
+          try {
+            var rule = { name: 'Gemini', userTag: 'USER-QUERY-CONTENT', aiTag: 'MESSAGE-CONTENT', method: 'tagName' };
+            var getTitle = function() {
+              try {
+                var el = document.querySelector('span.gds-title-m, span[class*="conversation-title"]');
+                if (el && el.innerText) { var t = el.innerText.trim(); if (t.length > 0 && t.length < 100) return t; }
+              } catch(e) {}
+              return null;
+            };
+            var exT = function(tb) {
+              var rs = tb.querySelectorAll('tr'), md = [];
+              for (var r = 0; r < rs.length; r++) {
+                var cs = rs[r].querySelectorAll('th, td'), ln = [];
+                for (var c = 0; c < cs.length; c++) ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+                if (ln.length > 0) { md.push('| ' + ln.join(' | ') + ' |'); if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |'); }
+              }
+              return md.join('\n');
+            };
+            var exC = function(p) {
+              var c = p.querySelector('code') || p;
+              return (c.innerText || '').trim().split('\n').map(function(l) { return l.replace(/^\s*\d+\s+/, ''); }).join('\n');
+            };
+            var toMd = function(el) {
+              var w = function(n) {
+                if (!n) return '';
+                if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+                if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+                if (n.nodeName === 'PRE') {
+                  var cd = exC(n); if (!cd) return '';
+                  var ce = n.querySelector('code'), lg = '';
+                  if (ce && ce.className) { var m = ce.className.match(/language-(\w+)/); if (m) lg = m[1]; }
+                  if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+                  return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+                }
+                if (/^H[1-6]$/.test(n.nodeName)) { var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n'; }
+                if (n.nodeName === 'P') return wc(n) + '\n';
+                if (n.nodeName === 'BR') return '\n';
+                if (n.nodeName === 'LI') return '- ' + wc(n).trim() + '\n';
+                if (n.nodeName === 'UL' || n.nodeName === 'OL') return '\n' + wc(n);
+                if (n.nodeName === 'STRONG' || n.nodeName === 'B') return '**' + wc(n) + '**';
+                if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+                if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+                return wc(n);
+              };
+              var wc = function(n) { if (!n || !n.childNodes) return ''; var o = ''; for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]); return o; };
+              return w(el).replace(/\n{3,}/g, '\n\n').trim();
+            };
+            var cs = [];
+            var ue = document.querySelectorAll(rule.userTag.toLowerCase());
+            var ae = document.querySelectorAll(rule.aiTag.toLowerCase());
+            for (var i = 0; i < ue.length; i++) cs.push({ el: ue[i], role: 'user', top: ue[i].getBoundingClientRect().top });
+            for (var i = 0; i < ae.length; i++) {
+              var p = ae[i].parentElement;
+              if (p && p.nodeName.toLowerCase() === rule.userTag.toLowerCase()) continue;
+              cs.push({ el: ae[i], role: 'assistant', top: ae[i].getBoundingClientRect().top });
+            }
+            if (cs.length === 0) { alert('未提取到对话内容'); return; }
+            cs.sort(function(a, b) { return a.top - b.top; });
+            var ms = [];
+            for (var i = 0; i < cs.length; i++) {
+              var ct = toMd(cs[i].el);
+              if (!ct) ct = (cs[i].el.innerText || '').trim();
+              if (ct.length > 5) ms.push({ role: cs[i].role, content: ct });
+            }
+            var mg = [];
+            for (var i = 0; i < ms.length; i++) {
+              if (mg.length > 0 && mg[mg.length - 1].role === ms[i].role) mg[mg.length - 1].content += '\n\n' + ms[i].content;
+              else mg.push(ms[i]);
+            }
+            if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) mg[0].role = 'user';
+            var summaryContent = '', mainMsgs = mg;
+            if (isSummaryMode && mg.length >= 2) {
+              var lastUser = mg[mg.length - 2], lastAi = mg[mg.length - 1];
+              if (lastUser.role === 'user' && lastAi.role === 'assistant') {
+                summaryContent = lastAi.content.replace(/\n{3,}/g, '\n\n').trim();
+                mainMsgs = mg.slice(0, -2);
+              }
+            }
+            var now = new Date();
+            var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+            var title = getTitle();
+            var fn = title ? ('Gemini' + (summaryContent ? '_Summary_' : '_') + title.replace(/[\\/:*?"<>|]/g, '_') + '_' + ts + '.md') : ('Gemini' + (summaryContent ? '_Summary_' : '_') + ts + '.md');
+            var md = '# Gemini Chat Export' + (summaryContent ? ' (Summary)' : '') + '\n\n> ' + now.toLocaleString('zh-CN') + '\n\n';
+            if (summaryContent) md += '# 对话总结\n\n' + summaryContent + '\n\n---\n\n';
+            for (var i = 0; i < mainMsgs.length; i++) {
+              var tx = mainMsgs[i].content.replace(/\n{3,}/g, '\n\n').trim();
+              if (mainMsgs[i].role === 'user') md += '# User\n\n' + tx + '\n\n---\n\n';
+              else md += '# AI\n\n' + tx + '\n\n';
+            }
+            var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(bl);
+            a.download = fn;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            console.log('=== 导出完成 [' + (trigger || '未知') + '] ===');
+            alert('已导出 ' + mainMsgs.length + ' 条消息' + (summaryContent ? '（含总结）' : '') + '\n\n触发方式：' + (trigger || '未知') + '\n\n' + fn);
+          } catch (e) {
+            console.error('Export error:', e);
+            alert('导出失败: ' + e.message);
+          }
+        };
+      }
+      
+      function mkDoExportQianwenQuark() {
+        return function(trigger, isSummaryMode) {
+          if (typeof isSummaryMode === 'undefined') isSummaryMode = false;
+          try {
+            var rules = [
+              { container: '[class*="message-select-wrapper"]', userPattern: 'question' },
+              { container: '[class*="message-select"]', userPattern: 'question' },
+              { container: '[class*="message-wrapper"]', userPattern: 'question' },
+              { container: '[class*="chat-message"]', userPattern: 'user|question' },
+              { container: '[class*="bubble"]', userPattern: 'user|question|right' },
+              { container: 'article', userPattern: 'user|question' }
+            ];
+            var rule = null;
+            var exT = function(tb) {
+              var rs = tb.querySelectorAll('tr'), md = [];
+              for (var r = 0; r < rs.length; r++) {
+                var cs = rs[r].querySelectorAll('th, td'), ln = [];
+                for (var c = 0; c < cs.length; c++) ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+                if (ln.length > 0) { md.push('| ' + ln.join(' | ') + ' |'); if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |'); }
+              }
+              return md.join('\n');
+            };
+            var exC = function(p) {
+              var c = p.querySelector('code') || p;
+              return (c.innerText || '').trim().split('\n').map(function(l) { return l.replace(/^\s*\d+\s+/, ''); }).join('\n');
+            };
+            var toMd = function(el) {
+              var w = function(n) {
+                if (!n) return '';
+                if (n.nodeType === 1 && n.getAttribute && n.getAttribute('data-c') === 'result_card') return '';
+                if (n.nodeType === 1 && n.className && ('' + n.className).indexOf('recommend-query-wrap') >= 0) return '';
+                if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+                if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+                if (n.nodeName === 'PRE') {
+                  var cd = exC(n); if (!cd) return '';
+                  var ce = n.querySelector('code'), lg = '';
+                  if (ce && ce.className) { var m = ce.className.match(/language-(\w+)/); if (m) lg = m[1]; }
+                  if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+                  return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+                }
+                if (/^H[1-6]$/.test(n.nodeName)) { var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n'; }
+                if (n.nodeName === 'P') return wc(n) + '\n';
+                if (n.nodeName === 'BR') return '\n';
+                if (n.nodeName === 'LI') return '- ' + wc(n).trim() + '\n';
+                if (n.nodeName === 'UL' || n.nodeName === 'OL') return '\n' + wc(n);
+                if (n.nodeName === 'STRONG' || n.nodeName === 'B') return '**' + wc(n) + '**';
+                if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+                if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+                return wc(n);
+              };
+              var wc = function(n) { if (!n || !n.childNodes) return ''; var o = ''; for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]); return o; };
+              return w(el).replace(/\n{3,}/g, '\n\n').trim();
+            };
+            var cs = [];
+            for (var r = 0; r < rules.length; r++) {
+              rule = rules[r];
+              var getRole = function(el, pat) {
+                for (var n = el; n && n !== document.body; n = n.parentElement) {
+                  if (new RegExp(pat).test(n.className || '')) return 'user';
+                }
+                return 'assistant';
+              };
+              var es = document.querySelectorAll(rule.container);
+              cs = [];
+              for (var i = 0; i < es.length; i++) {
+                if (es[i].getBoundingClientRect().right < 280) continue;
+                cs.push({ el: es[i], role: getRole(es[i], rule.userPattern), top: es[i].getBoundingClientRect().top });
+              }
+              if (cs.length > 0) break;
+            }
+            if (cs.length === 0) { alert('未提取到对话内容'); return; }
+            cs.sort(function(a, b) { return a.top - b.top; });
+            var ms = [];
+            for (var i = 0; i < cs.length; i++) {
+              var ct = toMd(cs[i].el);
+              if (!ct) ct = (cs[i].el.innerText || '').trim();
+              if (ct.length > 5) ms.push({ role: cs[i].role, content: ct });
+            }
+            var mg = [];
+            for (var i = 0; i < ms.length; i++) {
+              if (mg.length > 0 && mg[mg.length - 1].role === ms[i].role) mg[mg.length - 1].content += '\n\n' + ms[i].content;
+              else mg.push(ms[i]);
+            }
+            if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) mg[0].role = 'user';
+            var summaryContent = '', mainMsgs = mg;
+            if (isSummaryMode && mg.length >= 2) {
+              var lastUser = mg[mg.length - 2], lastAi = mg[mg.length - 1];
+              if (lastUser.role === 'user' && lastAi.role === 'assistant') {
+                summaryContent = lastAi.content.replace(/\n{3,}/g, '\n\n').trim();
+                mainMsgs = mg.slice(0, -2);
+              }
+            }
+            var now = new Date();
+            var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+            var fn = 'Qianwen_' + (summaryContent ? 'Summary_' : '') + ts + '.md';
+            var md = '# Qianwen Chat Export' + (summaryContent ? ' (Summary)' : '') + '\n\n> ' + now.toLocaleString('zh-CN') + '\n\n';
+            if (summaryContent) md += '# 对话总结\n\n' + summaryContent + '\n\n---\n\n';
+            for (var i = 0; i < mainMsgs.length; i++) {
+              var tx = mainMsgs[i].content.replace(/\n{3,}/g, '\n\n').trim();
+              if (mainMsgs[i].role === 'user') md += '# User\n\n' + tx + '\n\n---\n\n';
+              else md += '# AI\n\n' + tx + '\n\n';
+            }
+            var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(bl);
+            a.download = fn;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            console.log('=== 导出完成 [' + (trigger || '未知') + '] ===');
+            alert('已导出 ' + mainMsgs.length + ' 条消息' + (summaryContent ? '（含总结）' : '') + '\n\n触发方式：' + (trigger || '未知') + '\n\n' + fn);
+          } catch (e) {
+            console.error('Export error:', e);
+            alert('导出失败: ' + e.message);
+          }
+        };
+      }
+      
+      function mkDoExportQianwenGeneral() {
+        return function(trigger, isSummaryMode) {
+          if (typeof isSummaryMode === 'undefined') isSummaryMode = false;
+          try {
+            var exT = function(tb) {
+              var rs = tb.querySelectorAll('tr'), md = [];
+              for (var r = 0; r < rs.length; r++) {
+                var cs = rs[r].querySelectorAll('th, td'), ln = [];
+                for (var c = 0; c < cs.length; c++) ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+                if (ln.length > 0) { md.push('| ' + ln.join(' | ') + ' |'); if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |'); }
+              }
+              return md.join('\n');
+            };
+            var exC = function(p, lang) {
+              var c = p.querySelector('code') || p;
+              var raw = (c.innerText || c.textContent || '').trim();
+              var lines = raw.split('\n').map(function(l) { return l.replace(/^\s*\d+\s*/, ''); });
+              return lines.join('\n');
+            };
+            var getCodeLang = function(pre) {
+              var wrap = pre.closest ? pre.closest('[class*="rounded"]') : null;
+              if (!wrap) return '';
+              var sp = wrap.querySelector('span[class*="font-medium"]');
+              if (sp) { var t = (sp.innerText || '').trim(); if (t && t.length < 20) return t; }
+              return '';
+            };
+            var toMd = function(el) {
+              var w = function(n) {
+                if (!n) return '';
+                if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+                if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+                if (n.nodeName === 'PRE') {
+                  var cd = exC(n); if (!cd) return '';
+                  var lg = getCodeLang(n) || '';
+                  if (!lg && n.querySelector('code')) { var ce = n.querySelector('code'); var m = (ce.className || '').match(/language-(\w+)/); if (m) lg = m[1]; }
+                  if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+                  return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+                }
+                var cls = (n.className || '').toString();
+                if (/qk-md-table-section/.test(cls)) {
+                  var tbl = n.querySelector('table');
+                  return tbl ? '\n\n' + exT(tbl) + '\n\n' : wc(n);
+                }
+                if (/qk-md-head/.test(cls) && /^H[1-6]$/.test(n.nodeName)) {
+                  var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n';
+                }
+                if (/qk-md-paragraph/.test(cls)) return wc(n) + '\n';
+                if (/^H[1-6]$/.test(n.nodeName)) { var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n'; }
+                if (n.nodeName === 'P') return wc(n) + '\n';
+                if (n.nodeName === 'BR') return '\n';
+                if (n.nodeName === 'LI' || /qk-md-li/.test(cls)) return '- ' + wc(n).trim() + '\n';
+                if (n.nodeName === 'UL' || n.nodeName === 'OL' || /qk-md-ul/.test(cls)) return '\n' + wc(n);
+                if (n.nodeName === 'STRONG' || n.nodeName === 'B' || /qk-md-strong/.test(cls)) return '**' + wc(n) + '**';
+                if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+                if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+                return wc(n);
+              };
+              var wc = function(n) { if (!n || !n.childNodes) return ''; var o = ''; for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]); return o; };
+              return w(el).replace(/\n{3,}/g, '\n\n').trim();
+            };
+            var cs = [];
+            var userEls = document.querySelectorAll('[class*="contentBox"]');
+            var aiEls = document.querySelectorAll('[class*="qk-markdown"]');
+            for (var i = 0; i < userEls.length; i++) {
+              var r = userEls[i].getBoundingClientRect();
+              if (r.right < 200) continue;
+              cs.push({ el: userEls[i], role: 'user', top: r.top });
+            }
+            for (var j = 0; j < aiEls.length; j++) {
+              var r2 = aiEls[j].getBoundingClientRect();
+              if (r2.right < 200) continue;
+              cs.push({ el: aiEls[j], role: 'assistant', top: r2.top });
+            }
+            if (cs.length === 0) { alert('未提取到对话内容'); return; }
+            cs.sort(function(a, b) { return a.top - b.top; });
+            var ms = [];
+            for (var k = 0; k < cs.length; k++) {
+              var ct = toMd(cs[k].el);
+              if (!ct) ct = (cs[k].el.innerText || '').trim();
+              if (ct.length > 2) ms.push({ role: cs[k].role, content: ct });
+            }
+            var mg = [];
+            for (var m = 0; m < ms.length; m++) {
+              if (mg.length > 0 && mg[mg.length - 1].role === ms[m].role) mg[mg.length - 1].content += '\n\n' + ms[m].content;
+              else mg.push(ms[m]);
+            }
+            if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) mg[0].role = 'user';
+            var summaryContent = '', mainMsgs = mg;
+            if (isSummaryMode && mg.length >= 2) {
+              var lastUser = mg[mg.length - 2], lastAi = mg[mg.length - 1];
+              if (lastUser.role === 'user' && lastAi.role === 'assistant') {
+                summaryContent = lastAi.content.replace(/\n{3,}/g, '\n\n').trim();
+                mainMsgs = mg.slice(0, -2);
+              }
+            }
+            var now = new Date();
+            var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+            var fn = 'Qianwen_' + (summaryContent ? 'Summary_' : '') + ts + '.md';
+            var md = '# Qianwen Chat Export' + (summaryContent ? ' (Summary)' : '') + '\n\n> ' + now.toLocaleString('zh-CN') + '\n\n';
+            if (summaryContent) md += '# 对话总结\n\n' + summaryContent + '\n\n---\n\n';
+            md += '---\n\n';
+            for (var x = 0; x < mainMsgs.length; x++) {
+              var tx = mainMsgs[x].content.replace(/\n{3,}/g, '\n\n').trim();
+              if (mainMsgs[x].role === 'user') md += '# User\n\n' + tx + '\n\n---\n\n';
+              else md += '# AI\n\n' + tx + '\n\n';
+            }
+            var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(bl);
+            a.download = fn;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            console.log('=== 导出完成 [' + (trigger || '未知') + '] ===');
+            alert('已导出 ' + mainMsgs.length + ' 条消息' + (summaryContent ? '（含总结）' : '') + '\n\n' + fn);
+          } catch (e) {
+            console.error('Export error:', e);
+            alert('导出失败: ' + e.message);
+          }
+        };
+      }
+      } catch (e) {
+        console.error('Error:', e);
+        alert('Export failed: ' + (e && e.message ? e.message : String(e)));
+      }
+    };
+    
+    document.getElementById('exporter').href = 'javascript:(' + script.toString() + ')();';
+  </script>
+</body>
+</html>

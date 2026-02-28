@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>千问 - 导出（v3.0 可选总结）</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    h1 { color: #333; }
+    .info { background: #e8f0fe; padding: 16px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #4285f4; }
+    .bookmark { 
+      display: inline-block; padding: 12px 24px; background: #4285f4; color: white; 
+      text-decoration: none; border-radius: 6px; margin: 10px 0; cursor: move; font-weight: bold;
+    }
+    .bookmark:hover { background: #3367d6; }
+    .step { background: #f5f5f5; padding: 16px; margin: 16px 0; border-radius: 6px; }
+    code { background: #eee; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>📝 导出千问对话（v3.0）</h1>
+  <p>支持三种模式：直接导出 / 默认总结后导出 / 自定义总结指令后导出</p>
+
+  <div class="info">
+    <strong>✨ 适用域名</strong>
+    <ul style="margin:8px 0;">
+      <li>千问 (Qianwen) - qianwen.com/chat/</li>
+      <li>适用于非夸克浏览器</li>
+    </ul>
+    <strong>v3.0 三种模式</strong>
+    <ul style="margin:8px 0;">
+      <li>1 = 直接导出（不总结，立即导出当前对话）</li>
+      <li>2 = 默认总结后导出（发送固定指令，等待 AI 完成后导出）</li>
+      <li>3 = 自定义总结后导出（输入自己的指令，发送后等待完成再导出）</li>
+    </ul>
+  </div>
+
+  <div class="step">
+    <strong>使用方法：</strong>
+    <ol>
+      <li>将下方按钮拖拽到浏览器书签栏</li>
+      <li>打开千问对话页面 (qianwen.com/chat/)</li>
+      <li>点击书签，按提示选择模式后执行</li>
+    </ol>
+  </div>
+  
+  <a class="bookmark" id="sender" href="">📝 导出千问对话(非夸克)</a>
+  
+  <p style="margin-top:20px;font-size:0.9em;color:#666;">
+    💡 通过「停止→置灰发送键」判断 AI 是否完成。按 F12 可查看控制台日志。
+  </p>
+
+  <script>
+    var script = function() {
+      var DEFAULT_MSG = '总结当前对话，在对话框直接回复，不需要图片和文件。';
+      var POLL_MS = 500;
+      var WAIT_FOR_START_MS = 15000;
+      var MAX_GENERATING_MS = 120000;
+      
+      if (location.hostname.indexOf('qianwen.com') < 0 || location.pathname.indexOf('/chat') < 0 || location.pathname.indexOf('/quarkchat') >= 0) {
+        alert('请在千问对话页面 (qianwen.com/chat/) 使用此书签');
+        return;
+      }
+      
+      var doExport = function(trigger, isSummaryMode) {
+        try {
+          var exT = function(tb) {
+            var rs = tb.querySelectorAll('tr'), md = [];
+            for (var r = 0; r < rs.length; r++) {
+              var cs = rs[r].querySelectorAll('th, td'), ln = [];
+              for (var c = 0; c < cs.length; c++) ln.push((cs[c].innerText || '').trim().replace(/\n+/g, ' ').replace(/\|/g, '\\|'));
+              if (ln.length > 0) { md.push('| ' + ln.join(' | ') + ' |'); if (r === 0) md.push('| ' + ln.map(function() { return '---'; }).join(' | ') + ' |'); }
+            }
+            return md.join('\n');
+          };
+          var exC = function(p, lang) {
+            var c = p.querySelector('code') || p;
+            var raw = (c.innerText || c.textContent || '').trim();
+            var lines = raw.split('\n').map(function(l) { return l.replace(/^\s*\d+\s*/, ''); });
+            return lines.join('\n');
+          };
+          var getCodeLang = function(pre) {
+            var wrap = pre.closest ? pre.closest('[class*="rounded"]') : null;
+            if (!wrap) return '';
+            var sp = wrap.querySelector('span[class*="font-medium"]');
+            if (sp) { var t = (sp.innerText || '').trim(); if (t && t.length < 20) return t; }
+            return '';
+          };
+          var toMd = function(el) {
+            var w = function(n) {
+              if (!n) return '';
+              if (n.nodeType === 3) return n.textContent.replace(/\s+/g, ' ');
+              if (n.nodeName === 'TABLE') { var t = exT(n); return t ? '\n\n' + t + '\n\n' : ''; }
+              if (n.nodeName === 'PRE') {
+                var cd = exC(n); if (!cd) return '';
+                var lg = getCodeLang(n) || '';
+                if (!lg && n.querySelector('code')) { var ce = n.querySelector('code'); var m = (ce.className || '').match(/language-(\w+)/); if (m) lg = m[1]; }
+                if (!lg && /(SELECT|def |import )/.test(cd)) lg = /SELECT/.test(cd) ? 'sql' : 'python';
+                return '\n\n```' + lg + '\n' + cd + '\n```\n\n';
+              }
+              var cls = (n.className || '').toString();
+              if (/qk-md-table-section/.test(cls)) {
+                var tbl = n.querySelector('table');
+                return tbl ? '\n\n' + exT(tbl) + '\n\n' : wc(n);
+              }
+              if (/qk-md-head/.test(cls) && /^H[1-6]$/.test(n.nodeName)) {
+                var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n';
+              }
+              if (/qk-md-paragraph/.test(cls)) return wc(n) + '\n';
+              if (/^H[1-6]$/.test(n.nodeName)) { var lv = parseInt(n.nodeName[1]) + 1, hh = ''; for (var i = 0; i < lv; i++) hh += '#'; return '\n\n' + hh + ' ' + wc(n).trim() + '\n\n'; }
+              if (n.nodeName === 'P') return wc(n) + '\n';
+              if (n.nodeName === 'BR') return '\n';
+              if (n.nodeName === 'LI' || /qk-md-li/.test(cls)) return '- ' + wc(n).trim() + '\n';
+              if (n.nodeName === 'UL' || n.nodeName === 'OL' || /qk-md-ul/.test(cls)) return '\n' + wc(n);
+              if (n.nodeName === 'STRONG' || n.nodeName === 'B' || /qk-md-strong/.test(cls)) return '**' + wc(n) + '**';
+              if (n.nodeName === 'EM' || n.nodeName === 'I') return '*' + wc(n) + '*';
+              if (n.nodeName === 'CODE') return '`' + (n.innerText || '').trim() + '`';
+              return wc(n);
+            };
+            var wc = function(n) { if (!n || !n.childNodes) return ''; var o = ''; for (var i = 0; i < n.childNodes.length; i++) o += w(n.childNodes[i]); return o; };
+            return w(el).replace(/\n{3,}/g, '\n\n').trim();
+          };
+          
+          var cs = [];
+          var userEls = document.querySelectorAll('[class*="contentBox"]');
+          var aiEls = document.querySelectorAll('[class*="qk-markdown"]');
+          for (var i = 0; i < userEls.length; i++) {
+            var r = userEls[i].getBoundingClientRect();
+            if (r.right < 200) continue;
+            cs.push({ el: userEls[i], role: 'user', top: r.top });
+          }
+          for (var j = 0; j < aiEls.length; j++) {
+            var r2 = aiEls[j].getBoundingClientRect();
+            if (r2.right < 200) continue;
+            cs.push({ el: aiEls[j], role: 'assistant', top: r2.top });
+          }
+          
+          if (cs.length === 0) { alert('未提取到对话内容'); return; }
+          cs.sort(function(a, b) { return a.top - b.top; });
+          
+          var ms = [];
+          for (var k = 0; k < cs.length; k++) {
+            var ct = toMd(cs[k].el);
+            if (!ct) ct = (cs[k].el.innerText || '').trim();
+            if (ct.length > 2) ms.push({ role: cs[k].role, content: ct });
+          }
+          
+          var mg = [];
+          for (var m = 0; m < ms.length; m++) {
+            if (mg.length > 0 && mg[mg.length - 1].role === ms[m].role) mg[mg.length - 1].content += '\n\n' + ms[m].content;
+            else mg.push(ms[m]);
+          }
+          if (mg.length > 0 && mg[0].role !== 'user' && mg[0].content.length < 300) mg[0].role = 'user';
+          
+          var summaryContent = '';
+          var mainMsgs = mg;
+          if (isSummaryMode && mg.length >= 2) {
+            var lastUser = mg[mg.length - 2];
+            var lastAi = mg[mg.length - 1];
+            if (lastUser.role === 'user' && lastAi.role === 'assistant') {
+              summaryContent = lastAi.content.replace(/\n{3,}/g, '\n\n').trim();
+              mainMsgs = mg.slice(0, -2);
+            }
+          }
+          
+          var now = new Date();
+          var ts = now.getFullYear() + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2) + '_' + ('0' + now.getHours()).slice(-2) + ('0' + now.getMinutes()).slice(-2) + ('0' + now.getSeconds()).slice(-2);
+          var fn = 'Qianwen_' + (summaryContent ? 'Summary_' : '') + ts + '.md';
+          var md = '# Qianwen Chat Export' + (summaryContent ? ' (Summary)' : '') + '\n\n> ' + now.toLocaleString('zh-CN') + '\n\n';
+          if (summaryContent) md += '# 对话总结\n\n' + summaryContent + '\n\n---\n\n';
+          md += '---\n\n';
+          
+          for (var x = 0; x < mainMsgs.length; x++) {
+            var tx = mainMsgs[x].content.replace(/\n{3,}/g, '\n\n').trim();
+            if (mainMsgs[x].role === 'user') md += '# User\n\n' + tx + '\n\n---\n\n';
+            else md += '# AI\n\n' + tx + '\n\n';
+          }
+          
+          var bl = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(bl);
+          a.download = fn;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          
+          console.log('=== 导出完成 [' + (trigger || '未知') + '] ===');
+          alert('已导出 ' + mainMsgs.length + ' 条消息' + (summaryContent ? '（含总结）' : '') + '\n\n' + fn);
+        } catch (e) {
+          console.error('Export error:', e);
+          alert('导出失败: ' + e.message);
+        }
+      };
+      
+      var tryFillInput = function(input, MSG) {
+        input.focus();
+        try {
+          var el = input;
+          while (el && el !== document.body) {
+            for (var k in el) {
+              if (k.indexOf('__reactProps') === 0 || k.indexOf('__reactFiber') === 0) {
+                var fiber = el[k];
+                if (fiber && fiber.children && fiber.children[1]) {
+                  var props = fiber.children[1].props || fiber.children[1].memoizedProps;
+                  if (props && props.editor) {
+                    props.editor.insertText(MSG);
+                    if (typeof props.editor.onChange === 'function') props.editor.onChange();
+                    return true;
+                  }
+                }
+                if (fiber && fiber.return) {
+                  var p = fiber.return;
+                  for (var i = 0; i < 20 && p; i++) {
+                    var mp = p.memoizedProps || p.props;
+                    if (mp && mp.editor) {
+                      try {
+                        if (typeof mp.editor.insertText === 'function') mp.editor.insertText(MSG);
+                        if (typeof mp.editor.onChange === 'function') mp.editor.onChange();
+                        return true;
+                      } catch (e) {}
+                    }
+                    p = p.return;
+                  }
+                }
+              }
+            }
+            el = el.parentElement;
+          }
+        } catch (e) {}
+        return false;
+      };
+      
+      var getInputText = function(input) {
+        return (input.innerText || input.textContent || '').trim();
+      };
+      
+      var doSend = function(input) {
+        var sendBtn = document.querySelector('[class*="operateBtn"]:not([class*="disabled"]) [data-icon-type="qwpcicon-sendChat"]');
+        if (sendBtn) {
+          var btn = sendBtn.closest('[class*="operateBtn"]');
+          if (btn && !/disabled/.test(btn.className || '')) {
+            btn.click();
+            return;
+          }
+        }
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+      };
+      
+      var runSummary = function(MSG, isSummaryMode) {
+        var input = document.querySelector('div[data-slate-editor="true"][data-slate-node="value"]') || document.querySelector('div[data-placeholder="向千问提问"]') || document.querySelector('[class*="slateEditorWrapper"] [contenteditable="true"]');
+        if (!input) { alert('未找到输入框'); return; }
+        
+        var filled = tryFillInput(input, MSG);
+        var hasText = getInputText(input).indexOf(MSG.substring(0, 4)) >= 0 || getInputText(input).indexOf('总结') >= 0;
+        
+        if (!filled && !hasText) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(MSG).then(function() {
+              alert('自动填入失败，已复制到剪贴板。\n\n请手动粘贴到输入框（Ctrl+V）并发送。');
+            }).catch(function() { alert('自动填入失败，请手动输入并发送'); });
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = MSG;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            alert('自动填入失败，已复制到剪贴板。\n\n请手动粘贴到输入框（Ctrl+V）并发送。');
+          }
+        } else {
+          alert('已填入总结指令，点击确定后自动发送。');
+        }
+        
+        setTimeout(function() {
+          if (getInputText(input).indexOf('总结') >= 0 || getInputText(input).length > 5) {
+            doSend(input);
+            console.log('=== 已发送总结指令，等待 AI 完成 ===');
+          }
+        }, 80);
+        
+        var stopButtonSeen = false;
+        var startTime = Date.now();
+        
+        var getVisibleStopBtn = function() {
+          var imgs = document.querySelectorAll('img[src*="O1CN01GxD8Fq1ELwB7ZTHVq"]');
+          for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].getBoundingClientRect().width > 0 && imgs[i].getBoundingClientRect().height > 0) return imgs[i];
+          }
+          return null;
+        };
+        
+        var getVisibleDisabledSendBtn = function() {
+          var divs = document.querySelectorAll('[class*="operateBtn"][class*="disabled"]');
+          for (var i = 0; i < divs.length; i++) {
+            if (divs[i].querySelector('[data-icon-type="qwpcicon-sendChat"]') && divs[i].getBoundingClientRect().width > 0) return divs[i];
+          }
+          return null;
+        };
+        
+        var check = function() {
+          var elapsed = Date.now() - startTime;
+          var stopBtn = getVisibleStopBtn();
+          var disabledSendBtn = getVisibleDisabledSendBtn();
+          if (stopBtn) stopButtonSeen = true;
+          if (stopButtonSeen && disabledSendBtn) {
+            doExport('按钮检测（发送键置灰）', isSummaryMode);
+            return;
+          }
+          if (elapsed > MAX_GENERATING_MS) {
+            alert('等待超时（2分钟），请手动导出');
+            return;
+          }
+          if (!stopButtonSeen && elapsed > WAIT_FOR_START_MS) {
+            doExport('兜底机制（超时直接导出）', isSummaryMode);
+            return;
+          }
+          setTimeout(check, POLL_MS);
+        };
+        setTimeout(check, POLL_MS);
+      };
+      
+      var choice = prompt('选择导出模式：\n\n1 = 直接导出（不总结）\n2 = 默认总结后导出\n3 = 自定义总结后导出\n\n请输入 1、2 或 3：', '2');
+      if (choice === null) return;
+      choice = String(choice).trim();
+      if (choice === '1') {
+        doExport('直接导出', false);
+        return;
+      }
+      if (choice !== '2' && choice !== '3') {
+        alert('输入无效，已取消');
+        return;
+      }
+      
+      var MSG = choice === '2' ? DEFAULT_MSG : (prompt('请输入自定义指令（直接回车使用默认）：\n\n提示：若输入包含「概括」「总结」「归纳」「提炼」「汇总」「概述」「简述」「简要」等关键词，AI 的回复会作为「对话总结」置顶在 MD 文档；否则作为普通对话，无置顶总结。', DEFAULT_MSG) || DEFAULT_MSG);
+      if (MSG.trim() === '') MSG = DEFAULT_MSG;
+      
+      var SUMMARY_KEYWORDS = /概括|总结|归纳|提炼|汇总|概述|简述|简要/;
+      var isSummaryMode = choice === '2' ? true : (choice === '3' && SUMMARY_KEYWORDS.test(MSG));
+      
+      runSummary(MSG, isSummaryMode);
+    };
+    
+    document.getElementById('sender').href = 'javascript:(' + script.toString() + ')();';
+  </script>
+</body>
+</html>
